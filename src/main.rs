@@ -1,8 +1,22 @@
 use gtk::prelude::*;
-use std::{cell::RefCell, rc::Rc};
+use notify_rust::Notification;
+use std::{cell::RefCell, path::Path, process::Command, rc::Rc};
 
 use glib::{self, ControlFlow};
 use gtk::{Box as GtkBox, Button, Label, Orientation, Window};
+
+fn play_sound(sound_type: &str) {
+    let sound_path = match sound_type {
+        "work" => "/usr/share/sounds/freedesktop/stereo/complete.oga",
+        "break" => "/usr/share/sounds/freedesktop/stereo/message.oga",
+        _ => "/usr/share/sounds/freedesktop/stereo/bell.oga",
+    };
+    if Path::new(sound_path).exists() {
+        let _ = Command::new("paplay").arg(sound_path).spawn();
+    } else {
+        let _ = Command::new("beep").spawn();
+    }
+}
 
 const WORK_TIME: u32 = 15 * 60;
 const BREAK_TIME: u32 = 5 * 60;
@@ -111,7 +125,19 @@ fn main() {
             state.tick();
             if state.time_left == 0 {
                 state.toggle_mode();
-                println!("Режим изменен");
+                let sound_type = if state.work_mode { "work" } else { "break" };
+                play_sound(sound_type);
+                let summary = if state.work_mode {
+                    "🍅 Работа"
+                } else {
+                    "☕ Отдых"
+                };
+                let body = if state.work_mode {
+                    "Время поработать"
+                } else {
+                    "Пора сделать перерыв"
+                };
+                let _ = Notification::new().summary(summary).body(body).show();
             }
         }
         drop(state);
